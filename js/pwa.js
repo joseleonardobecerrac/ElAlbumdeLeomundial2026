@@ -375,19 +375,113 @@ window.pwa = {
     navigator.serviceWorker?.controller?.postMessage({ type: 'GET_VERSION' });
   },
 
-  // Register for push (placeholder — needs VAPID key)
+  // Register for push notifications via FCM
   registerPush: async () => {
-    if(!swRegistration) { toast('SW no registrado', 'error'); return; }
+    if (!swRegistration) { toast('SW no registrado', 'error'); return; }
+
+    // 1. Pedir permiso al usuario
+    let permission;
     try {
-      const perm = await Notification.requestPermission();
-      if(perm === 'granted') {
-        toast('🔔 Notificaciones activadas', 'success');
-      } else {
-        toast('Notificaciones bloqueadas por el navegador', 'error');
-      }
+      permission = await Notification.requestPermission();
     } catch(e) {
-      toast('Error al activar notificaciones', 'error');
+      toast('Error al solicitar permiso de notificaciones', 'error');
+      return;
     }
+
+    if (permission !== 'granted') {
+      toast('Notificaciones bloqueadas. Actívalas en configuración del navegador.', 'error');
+      return;
+    }
+
+    // 2. Obtener token FCM via Service Worker Push subscription
+    try {
+      // VAPID public key del proyecto Firebase
+      // Obtener en: Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+      const VAPID_PUBLIC_KEY = window.FIREBASE_VAPID_KEY || '';
+
+      if (!VAPID_PUBLIC_KEY) {
+        // Sin VAPID key: solo activar notificaciones locales
+        toast('🔔 Notificaciones locales activadas', 'success');
+        localStorage.setItem('album26_notifs', 'local');
+        return;
+      }
+
+      // Convertir VAPID key de base64url a Uint8Array
+      const vapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+      // Suscribir al push
+      const subscription = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey,
+      });
+
+      // 3. Obtener token FCM desde Firebase Messaging
+      const { getMessaging, getToken } = await import(
+        'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js'
+      );
+      const messaging = getMessaging(window._firebase.app);
+      const fcmToken = await getToken(messaging, {
+        vapidKey: VAPID_PUBLIC_KEY,
+        serviceWorkerRegistration: swRegistration,
+      });
+
+      if (!fcmToken) {
+        toast('No se pudo obtener el token de notificaciones', 'error');
+        return;
+      }
+
+      // 4. Guardar token en servidor (Cloud Function)
+      const base = window.CLOUD_FUNCTION_BASE || '';
+      if (base && state?.userId && window._firebase?.auth?.currentUser) {
+        const idToken = await window._firebase.auth.currentUser.getIdToken();
+        await fetch(`${base}/subscribeToNotifs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            token: fcmToken,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+        });
+      }
+
+      // Guardar localmente también
+      localStorage.setItem('album26_fcm_token', fcmToken);
+      localStorage.setItem('album26_notifs', 'fcm');
+
+      toast('🔔 Notificaciones activadas — recibirás el sobre diario a las 8am', 'success');
+
+    } catch(e) {
+      console.error('[PWA] Push registration error:', e);
+      // Fallback: notificaciones locales via SW
+      scheduleLocalNotification();
+      toast('🔔 Notificaciones locales activadas', 'success');
+      localStorage.setItem('album26_notifs', 'local');
+    }
+  },
+
+  // Desactivar notificaciones
+  unregisterPush: async () => {
+    try {
+      if (swRegistration) {
+        const sub = await swRegistration.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+      localStorage.removeItem('album26_fcm_token');
+      localStorage.removeItem('album26_notifs');
+      toast('🔕 Notificaciones desactivadas', 'success');
+    } catch(e) {
+      toast('Error al desactivar notificaciones', 'error');
+    }
+  },
+
+  // Estado actual de las notificaciones
+  getNotifStatus: () => {
+    const perm = Notification.permission;
+    const stored = localStorage.getItem('album26_notifs');
+    return { permission: perm, type: stored || 'none' };
   },
 };
 
@@ -408,8 +502,9 @@ function injectPWASettings() {
     <div class="sb-item" onclick="pwa.clearCache()" style="font-size:12px;">
       <span class="sb-flag">🗑</span> Limpiar caché
     </div>
-    <div class="sb-item" onclick="pwa.registerPush()" style="font-size:12px;">
-      <span class="sb-flag">🔔</span> Notificaciones
+    <div class="sb-item" id="pwa-notif-btn" onclick="pwaToggleNotifs()" style="font-size:12px;">
+      <span class="sb-flag" id="pwa-notif-icon">🔔</span>
+      <span id="pwa-notif-label">Notificaciones</span>
     </div>`;
 
   const progress = sb.querySelector('.sb-progress');
@@ -426,3 +521,36 @@ if(document.readyState === 'loading') {
 }
 
 })(); // end IIFE
+
+// ── Toggle notificaciones en el sidebar ──────────────────
+async function pwaToggleNotifs() {
+  const status = pwa.getNotifStatus();
+  if (status.type !== 'none' && status.permission === 'granted') {
+    await pwa.unregisterPush();
+    updateNotifBtn(false);
+  } else {
+    await pwa.registerPush();
+    updateNotifBtn(status.permission === 'granted' || Notification.permission === 'granted');
+  }
+}
+
+function updateNotifBtn(active) {
+  const icon  = document.getElementById('pwa-notif-icon');
+  const label = document.getElementById('pwa-notif-label');
+  if (!icon || !label) return;
+  if (active) {
+    icon.textContent  = '🔔';
+    label.textContent = 'Notificaciones ✓';
+    label.style.color = 'var(--green)';
+  } else {
+    icon.textContent  = '🔕';
+    label.textContent = 'Notificaciones';
+    label.style.color = '';
+  }
+}
+
+// Sincronizar estado del botón al cargar
+setTimeout(() => {
+  const status = pwa.getNotifStatus();
+  updateNotifBtn(status.type !== 'none' && status.permission === 'granted');
+}, 1200);
