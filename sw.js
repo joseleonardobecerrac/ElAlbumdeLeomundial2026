@@ -3,10 +3,58 @@
 // Estrategia: Cache First para assets, Network First para datos
 // ═══════════════════════════════════════════════════════════
 
-const SW_VERSION   = 'v1.0.0';
+// Firebase Messaging en el SW (para notificaciones push en background)
+// Se importa condicionalmente para no romper si no está configurado
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+} catch(e) {
+  console.warn('[SW] Firebase Messaging no disponible:', e.message);
+}
+
+const SW_VERSION   = 'v1.1.0';
 const CACHE_STATIC = `album26-static-${SW_VERSION}`;
 const CACHE_IMAGES = `album26-images-${SW_VERSION}`;
 const CACHE_FONTS  = `album26-fonts-${SW_VERSION}`;
+
+// ── Firebase Messaging Background Handler ────────────────
+// Se inicializa solo si Firebase está disponible en el SW
+let _messaging = null;
+try {
+  if (typeof firebase !== 'undefined') {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAHhIXlurMt4UIML3E2Ku8_cr8Uht9e8yc",
+      authDomain: "algum-mundial-2026.firebaseapp.com",
+      projectId: "algum-mundial-2026",
+      storageBucket: "algum-mundial-2026.firebasestorage.app",
+      messagingSenderId: "905949505139",
+      appId: "1:905949505139:web:25a1b183edeaa72edb2c06",
+    });
+    _messaging = firebase.messaging();
+
+    // Manejar mensajes en background (app cerrada o en otra pestaña)
+    _messaging.onBackgroundMessage(payload => {
+      console.log('[SW] FCM background message:', payload);
+      const { notification, data } = payload;
+      const title = notification?.title || '📦 Álbum Mundial 2026';
+      const options = {
+        body: notification?.body || '¡Tienes contenido nuevo!',
+        icon: '/icon-192.png',
+        badge: '/icon-96.png',
+        tag: data?.type || 'album26',
+        renotify: true,
+        data: { url: data?.url || '/' },
+        actions: [
+          { action: 'open', title: '📦 Abrir' },
+          { action: 'dismiss', title: 'Luego' },
+        ],
+      };
+      return self.registration.showNotification(title, options);
+    });
+  }
+} catch(e) {
+  console.warn('[SW] Error inicializando Firebase Messaging:', e.message);
+}
 
 // Assets que se pre-cachean en la instalación (shell de la app)
 const STATIC_SHELL = [

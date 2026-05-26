@@ -32,15 +32,6 @@
 <!-- Styles -->
 <link rel="stylesheet" href="css/style.css">
 
-<script>
-// ── Configuración de Cloud Functions ──────────────────────
-// Cambia esta URL por la URL real de tu proyecto Firebase:
-//   firebase deploy --only functions  →  te da la URL exacta
-// Ejemplo: 'https://us-central1-algum-mundial-2026.cloudfunctions.net'
-// Déjala vacía ('') para usar modo local/desarrollo sin proxy.
-window.CLOUD_FUNCTION_BASE = 'https://us-central1-algum-mundial-2026.cloudfunctions.net';
-</script>
-
 <!-- Firebase -->
 <script type="module" src="js/firebase.js"></script>
 
@@ -332,18 +323,12 @@ window.CLOUD_FUNCTION_BASE = 'https://us-central1-algum-mundial-2026.cloudfuncti
 </div>
 
 <!-- JS modules in dependency order -->
-<script src="js/player-photos.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/data.js"></script>
 <script src="js/state.js"></script>
 <script src="js/scorers.js"></script>
 <script src="js/gamedata.js"></script>
-<!-- Módulos separados (refactor de app.js) -->
-<script src="js/comparator.js"></script>
-<script src="js/predictor.js"></script>
-<script src="js/trivia.js"></script>
-<script src="js/lineup.js"></script>
-<script src="js/app_core.js"></script>
+<script src="js/app.js"></script>
 <script src="js/worldmap.js"></script>
 <script src="js/ranking.js"></script>
 <script src="js/limited.js"></script>
@@ -351,6 +336,7 @@ window.CLOUD_FUNCTION_BASE = 'https://us-central1-algum-mundial-2026.cloudfuncti
 <script src="js/animated-stickers.js"></script>
 <script src="js/chatbot.js"></script>
 <script src="js/search.js"></script>
+<script src="js/live-scores.js"></script>
 <script src="js/pwa.js"></script>
 
 </body>
