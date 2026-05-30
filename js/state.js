@@ -516,7 +516,7 @@ function updateUserUI(user) {
   }
 }
 
-async function handleLogout() {
+window.handleLogout = async function handleLogout() {
   // Guardamos antes de salir solo si NO es admin
   if(state.userId && !state.isAdmin) {
     await saveToFirestore();
@@ -552,16 +552,9 @@ function showApp() {
 }
 
 function cleanSidebar() {
-  // Ocultar todas las secciones superiores del sidebar (Álbum, Más, etc.)
-  // Solo mantener la sección de Grupos y Países que construye buildSidebar()
-  const scroll = document.querySelector('.sb-scroll');
-  if (!scroll) return;
-  // Ocultar los sb-section fijos que no son de países
-  scroll.querySelectorAll('.sb-section').forEach(s => {
-    if (s.textContent.trim() === 'Álbum' || s.textContent.trim() === 'Más') {
-      s.style.display = 'none';
-    }
-  });
+  // No ocultar secciones fijas — "Álbum", "Grupos", "Países" y "Más"
+  // son parte del layout del sidebar y deben permanecer visibles.
+  // buildSidebar() se encarga de poblar solo #nav-countries con los grupos dinámicos.
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -876,11 +869,9 @@ function renderPack(page) {
     <div class="pack-reveal" id="pack-reveal">
       <div class="section-label" style="margin-bottom:16px;">Láminas obtenidas</div>
       <div class="pack-reveal-grid" id="pack-grid"></div>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+      <div id="pack-reveal-actions" style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
         <button class="tb-btn gold" onclick="navigate('home')" style="padding:8px 20px;">Ir al álbum</button>
-        ${getPacksRemaining() > 1 || state.isAdmin
-          ? `<button class="tb-btn" onclick="renderPack(document.getElementById('page'))" style="padding:8px 20px;">Otro sobre</button>`
-          : ''}
+        <!-- El botón "Otro sobre" se inyecta en renderDrawnCards() una vez conocido el remaining real -->
       </div>
     </div>
   </div>`;
@@ -1110,6 +1101,18 @@ function renderDrawnCards(drawn, serverSide = false) {
 
   saveState();
   updateProgress();
+
+  // Inyectar "Otro sobre" DESPUÉS de registrar la apertura,
+  // así getPacksRemaining() refleja el valor real actualizado
+  const actionsEl = document.getElementById('pack-reveal-actions');
+  if (actionsEl && (state.isAdmin || getPacksRemaining() > 0)) {
+    const btn = document.createElement('button');
+    btn.className = 'tb-btn';
+    btn.style.padding = '8px 20px';
+    btn.textContent = 'Otro sobre';
+    btn.onclick = () => renderPack(document.getElementById('page'));
+    actionsEl.appendChild(btn);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
