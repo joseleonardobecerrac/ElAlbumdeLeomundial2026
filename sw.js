@@ -12,7 +12,7 @@ try {
   console.warn('[SW] Firebase Messaging no disponible:', e.message);
 }
 
-const SW_VERSION   = 'v1.1.0';
+const SW_VERSION   = 'v1.2.0';
 const CACHE_STATIC = `album26-static-${SW_VERSION}`;
 const CACHE_IMAGES = `album26-images-${SW_VERSION}`;
 const CACHE_FONTS  = `album26-fonts-${SW_VERSION}`;
@@ -69,12 +69,20 @@ const STATIC_SHELL = [
   './js/state.js',
   './js/scorers.js',
   './js/gamedata.js',
-  './js/app.js',
+  './js/player-photos.js',
+  // Módulos refactorizados (app.js ya no se usa)
+  './js/comparator.js',
+  './js/predictor.js',
+  './js/trivia.js',
+  './js/lineup.js',
+  './js/app_core.js',
   './js/worldmap.js',
   './js/ranking.js',
   './js/limited.js',
   './js/favorite.js',
   './js/animated-stickers.js',
+  './js/live-scores.js',
+  './js/pwa.js',
   './manifest.json',
   './offline.html',
   './icon-96.png',
