@@ -1113,7 +1113,13 @@ function renderDrawnCards(drawn, serverSide = false) {
     btn.onclick = () => renderPack(document.getElementById('page'));
     actionsEl.appendChild(btn);
   }
+
+  // Hook de animaciones Panini (badges + confetti)
+  if (typeof window.onDrawnCardsRendered === 'function') {
+    window.onDrawnCardsRendered(drawn);
+  }
 }
+window.renderDrawnCards = renderDrawnCards;
 
 // ═══════════════════════════════════════════════════════════
 // COUNTRY PAGE
